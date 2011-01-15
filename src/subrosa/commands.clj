@@ -337,7 +337,12 @@
         start (format "PRIVMSG %s :%s sez:" (nick-for-channel channel) (catchup-name))
         end (format "PRIVMSG %s :End of catchup" (nick-for-channel channel))]
     (when (> (count msgs) 0) (dispatch-message start channel))
-    (doseq [msg-text msgs]
-      (let [m (format "PRIVMSG %s :%s" (nick-for-channel channel) msg-text)]
-        (dispatch-message m channel)))
+    (binding [send-to-client (fn [channel msg]
+                               (when (.isWritable channel)
+                                 (io! (.write channel (str msg "\n")))))]
+      (.start
+       (Thread.
+        #(doseq [msg-text msgs]
+           (let [m (format "PRIVMSG %s :%s" (nick-for-channel channel) msg-text)]
+             (dispatch-message m channel))))))
     (when (> (count msgs) 0) (dispatch-message end channel))))
